@@ -1,28 +1,54 @@
 package com.mobilecnn;
 
+import android.net.Uri;
+import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
-import android.support.v7.app.ActionBar;
-import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.view.LayoutInflater;
+import android.util.Log;
 import android.view.Menu;
 import android.view.MenuItem;
 import android.view.View;
-import android.view.ViewGroup;
-import android.os.Build;
+import android.widget.Button;
+import android.content.Intent;
+import android.provider.MediaStore;
+
+import java.io.File;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 
 
 public class MainActivity extends ActionBarActivity {
+    private static final String LOG_TAG = "MainActivity";
+    private static final int REQUEST_IMAGE_CAPTURE = 100;
+    private static final int REQUEST_IMAGE_SELECT = 200;
+    public static final int MEDIA_TYPE_IMAGE = 1;
+
+    private Button btnCamera;
+    private Button btnSelect;
+    private Uri fileUri;
 
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
-        if (savedInstanceState == null) {
-            getSupportFragmentManager().beginTransaction()
-                    .add(R.id.container, new PlaceholderFragment())
-                    .commit();
-        }
+
+        btnCamera = (Button) findViewById(R.id.btnCamera);
+        btnCamera.setOnClickListener(new Button.OnClickListener() {
+            public void onClick(View v) {
+                fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
+                Intent i = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+                i.putExtra(MediaStore.EXTRA_OUTPUT, fileUri);
+                startActivityForResult(i, REQUEST_IMAGE_CAPTURE);
+            }
+        });
+
+        btnSelect = (Button) findViewById(R.id.btnSelect);
+        btnSelect.setOnClickListener(new Button.OnClickListener() {
+            public void onClick(View v) {
+                Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
+                startActivityForResult(i, REQUEST_IMAGE_SELECT);
+            }
+        });
     }
 
 
@@ -48,24 +74,40 @@ public class MainActivity extends ActionBarActivity {
         return super.onOptionsItemSelected(item);
     }
 
-    //Test button pushing code
-    public void buttonPushed(View view){
-        view.setEnabled(false);
+
+    /** Create a file Uri for saving an image or video */
+    private static Uri getOutputMediaFileUri(int type){
+        return Uri.fromFile(getOutputMediaFile(type));
     }
 
-    /**
-     * A placeholder fragment containing a simple view.
-     */
-    public static class PlaceholderFragment extends Fragment {
+    /** Create a File for saving an image or video */
+    private static File getOutputMediaFile(int type){
+        // To be safe, you should check that the SDCard is mounted
+        // using Environment.getExternalStorageState() before doing this.
 
-        public PlaceholderFragment() {
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES), "MobileCNN");
+        // This location works best if you want the created images to be shared
+        // between applications and persist after your app has been uninstalled.
+
+        // Create the storage directory if it does not exist
+        if (! mediaStorageDir.exists()) {
+            if (! mediaStorageDir.mkdirs()) {
+                Log.d("MyCameraApp", "failed to create directory");
+                return null;
+            }
         }
 
-        @Override
-        public View onCreateView(LayoutInflater inflater, ViewGroup container,
-                                 Bundle savedInstanceState) {
-            View rootView = inflater.inflate(R.layout.fragment_main, container, false);
-            return rootView;
+        // Create a media file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        File mediaFile;
+        if (type == MEDIA_TYPE_IMAGE) {
+            mediaFile = new File(mediaStorageDir.getPath() + File.separator +
+                    "IMG_"+ timeStamp + ".jpg");
+        } else {
+            return null;
         }
+
+        return mediaFile;
     }
 }
