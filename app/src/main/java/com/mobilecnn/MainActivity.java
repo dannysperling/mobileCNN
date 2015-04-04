@@ -1,5 +1,8 @@
 package com.mobilecnn;
 
+import android.graphics.Bitmap;
+import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Environment;
 import android.support.v7.app.ActionBarActivity;
@@ -11,8 +14,21 @@ import android.view.View;
 import android.widget.Button;
 import android.content.Intent;
 import android.provider.MediaStore;
+import android.widget.ImageView;
+import android.widget.TextView;
+
+import org.apache.http.HttpResponse;
+import org.apache.http.client.ClientProtocolException;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpPost;
+import org.apache.http.entity.mime.HttpMultipartMode;
+import org.apache.http.entity.mime.MultipartEntityBuilder;
+import org.apache.http.entity.mime.content.FileBody;
+import org.apache.http.impl.client.DefaultHttpClient;
 
 import java.io.File;
+import java.io.FileOutputStream;
+import java.io.IOException;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
@@ -23,8 +39,19 @@ public class MainActivity extends ActionBarActivity {
     private static final int REQUEST_IMAGE_SELECT = 200;
     public static final int MEDIA_TYPE_IMAGE = 1;
 
+    private static File lastImage;
+    private static final int imageSize = 256;
+
+    private static RemoteCNNRequest request = new RemoteCNNRequest(null);
+
     private Button btnCamera;
     private Button btnSelect;
+
+    private TextView resultText;
+
+    private static Bitmap lastImageBitmap = null;
+    private static ImageView imageTaken;
+
     private Uri fileUri;
 
     @Override
@@ -49,6 +76,67 @@ public class MainActivity extends ActionBarActivity {
                 startActivityForResult(i, REQUEST_IMAGE_SELECT);
             }
         });
+
+        resultText = (TextView) findViewById(R.id.tvLabel);
+        imageTaken = (ImageView) findViewById(R.id.ivCaptured);
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        //Successfully took an image - let's do stuff with it!
+        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
+            resizeAndSaveImage(lastImage);
+
+            request = new RemoteCNNRequest(resultText);
+            request.setFile(lastImage);
+            request.start();
+        }
+    }
+
+    private static void resizeAndSaveImage(File file){
+        BitmapFactory.Options options = new BitmapFactory.Options();
+
+        if (lastImageBitmap != null) {
+            lastImageBitmap.recycle();
+        }
+
+        // Need to rotate the image taken, at least on this device. Can make modular
+        Matrix matrix = new Matrix();
+        matrix.postRotate(270);
+
+        Bitmap bmo = BitmapFactory.decodeFile(file.getAbsolutePath(), options);
+        lastImageBitmap =Bitmap.createBitmap(bmo, 0, 0, bmo.getWidth(), bmo.getHeight(), matrix, true);
+        imageTaken.setImageBitmap(lastImageBitmap);
+        Bitmap scaled = Bitmap.createScaledBitmap(lastImageBitmap, imageSize, imageSize, true);
+
+        saveImageToTempFile(scaled);
+        bmo.recycle();
+        scaled.recycle();
+    }
+
+    //Saves the image to the given filename
+    private static void saveImageToTempFile(Bitmap bmp){
+
+        File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES), "MobileCNN");
+        File tempFile =  new File(mediaStorageDir.getPath() + File.separator + "temp.png");
+
+        FileOutputStream out = null;
+        try {
+            out = new FileOutputStream(tempFile.getAbsolutePath());
+            bmp.compress(Bitmap.CompressFormat.PNG, 100, out); // bmp is your Bitmap instance
+            // PNG is a lossless format, the compression factor (100) is ignored
+        } catch (Exception e) {
+            e.printStackTrace();
+        } finally {
+            try {
+                if (out != null) {
+                    out.close();
+                }
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
     }
 
 
@@ -77,7 +165,8 @@ public class MainActivity extends ActionBarActivity {
 
     /** Create a file Uri for saving an image or video */
     private static Uri getOutputMediaFileUri(int type){
-        return Uri.fromFile(getOutputMediaFile(type));
+        lastImage = getOutputMediaFile(type);
+        return Uri.fromFile(lastImage);
     }
 
     /** Create a File for saving an image or video */
