@@ -87,9 +87,7 @@ public class MainActivity extends ActionBarActivity {
         if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
             resizeAndSaveImage(lastImage);
 
-            request = new RemoteCNNRequest(resultText);
-            request.setFile(lastImage);
-            request.start();
+            new RemoteCNNRequest(resultText).execute(lastImage);
         }
     }
 
