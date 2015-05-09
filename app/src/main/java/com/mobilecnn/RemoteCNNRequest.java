@@ -13,14 +13,14 @@ import org.apache.http.entity.mime.MultipartEntityBuilder;
 import org.apache.http.entity.mime.content.FileBody;
 import org.apache.http.impl.client.DefaultHttpClient;
 
-import java.io.BufferedReader;
 import java.io.File;
 import java.io.IOException;
 import java.io.InputStream;
-import java.io.StringWriter;
 
+/**
+ * Created by daniel on 5/9/15.
+ */
 public class RemoteCNNRequest extends AsyncTask<File, Integer, String> {
-
     private static final String POST_URL = "http://54.81.96.73:5000";
 
     private String result = "Waiting...";
@@ -30,7 +30,7 @@ public class RemoteCNNRequest extends AsyncTask<File, Integer, String> {
     public RemoteCNNRequest(TextView resultText){
         this.resultText = resultText;
         if (resultText != null){
-           updateTextview();
+            updateTextview();
         }
     }
 
@@ -51,7 +51,6 @@ public class RemoteCNNRequest extends AsyncTask<File, Integer, String> {
             httppost.setEntity(builder.build());
             HttpResponse response = httpclient.execute(httppost);
 
-            //TODO: This will need to change a bit
             InputStream io = response.getEntity().getContent();
             String responseString = IOUtils.toString(io, "UTF-8");
 

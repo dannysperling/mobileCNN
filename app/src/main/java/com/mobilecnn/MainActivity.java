@@ -1,5 +1,7 @@
 package com.mobilecnn;
 
+import android.content.res.AssetManager;
+import android.database.Cursor;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
@@ -17,35 +19,29 @@ import android.provider.MediaStore;
 import android.widget.ImageView;
 import android.widget.TextView;
 
-import org.apache.http.HttpResponse;
-import org.apache.http.client.ClientProtocolException;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpPost;
-import org.apache.http.entity.mime.HttpMultipartMode;
-import org.apache.http.entity.mime.MultipartEntityBuilder;
-import org.apache.http.entity.mime.content.FileBody;
-import org.apache.http.impl.client.DefaultHttpClient;
+import com.sh1r0.caffe_android_demo.CaffeMobile;
 
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.io.InputStream;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
+import java.util.Locale;
+import java.util.Scanner;
 
 
 public class MainActivity extends ActionBarActivity {
-    private static final String LOG_TAG = "MainActivity";
+
     private static final int REQUEST_IMAGE_CAPTURE = 100;
     private static final int REQUEST_IMAGE_SELECT = 200;
     public static final int MEDIA_TYPE_IMAGE = 1;
+    private static String[] IMAGENET_CLASSES;
 
     private static File lastImage;
     private static final int imageSize = 256;
-
-    private static RemoteCNNRequest request = new RemoteCNNRequest(null);
-
-    private Button btnCamera;
-    private Button btnSelect;
 
     private TextView resultText;
 
@@ -54,12 +50,22 @@ public class MainActivity extends ActionBarActivity {
 
     private Uri fileUri;
 
+    private CaffeMobile caffeMobile;
+    private static final String DEPLOY_PROTO ="/sdcard/caffe_mobile/bvlc_reference_caffenet/deploy_mobile.prototxt";
+    private static final String CAFFE_MODEL = "/sdcard/caffe_mobile/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel";
+    private static final String CLASS_WORDS = "synset_words.txt";
+
+    static {
+        System.loadLibrary("caffe");
+        System.loadLibrary("caffe_jni");
+    }
+
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         setContentView(R.layout.activity_main);
 
-        btnCamera = (Button) findViewById(R.id.btnCamera);
+        Button btnCamera = (Button) findViewById(R.id.btnCamera);
         btnCamera.setOnClickListener(new Button.OnClickListener() {
             public void onClick(View v) {
                 fileUri = getOutputMediaFileUri(MEDIA_TYPE_IMAGE);
@@ -69,7 +75,7 @@ public class MainActivity extends ActionBarActivity {
             }
         });
 
-        btnSelect = (Button) findViewById(R.id.btnSelect);
+        Button btnSelect = (Button) findViewById(R.id.btnSelect);
         btnSelect.setOnClickListener(new Button.OnClickListener() {
             public void onClick(View v) {
                 Intent i = new Intent(Intent.ACTION_PICK, MediaStore.Images.Media.EXTERNAL_CONTENT_URI);
@@ -79,16 +85,56 @@ public class MainActivity extends ActionBarActivity {
 
         resultText = (TextView) findViewById(R.id.tvLabel);
         imageTaken = (ImageView) findViewById(R.id.ivCaptured);
+
+
+        //Get caffe mobile working!
+        caffeMobile = new CaffeMobile();
+        caffeMobile.enableLog(true);
+        caffeMobile.loadModel(DEPLOY_PROTO, CAFFE_MODEL);
+
+        AssetManager am = this.getAssets();
+        try {
+            InputStream is = am.open(CLASS_WORDS);
+            Scanner sc = new Scanner(is);
+            List<String> lines = new ArrayList<>();
+            while (sc.hasNextLine()) {
+                final String temp = sc.nextLine();
+                lines.add(temp.substring(temp.indexOf(" ") + 1));
+            }
+            IMAGENET_CLASSES = lines.toArray(new String[lines.size()]);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
     }
 
     @Override
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         //Successfully took an image - let's do stuff with it!
-        if (requestCode == REQUEST_IMAGE_CAPTURE && resultCode == RESULT_OK) {
-            resizeAndSaveImage(lastImage);
+        if ((requestCode == REQUEST_IMAGE_CAPTURE || requestCode == REQUEST_IMAGE_SELECT) && resultCode == RESULT_OK) {
 
-            new RemoteCNNRequest(resultText).execute(lastImage);
+            File image;
+            if (requestCode == REQUEST_IMAGE_CAPTURE) {
+                image = lastImage;
+            } else {
+                Uri selectedImage = data.getData();
+                String[] filePathColumn = { MediaStore.Images.Media.DATA };
+                Cursor cursor = MainActivity.this.getContentResolver().query(selectedImage, filePathColumn, null, null, null);
+                cursor.moveToFirst();
+                int columnIndex = cursor.getColumnIndex(filePathColumn[0]);
+                String imgPath = cursor.getString(columnIndex);
+                image = new File(imgPath);
+                cursor.close();
+            }
+
+            resizeAndSaveImage(image);
+
+            if (!CNNPreferences.useLocalCNN.isChecked()) {
+                new RemoteCNNRequest(resultText).execute(image);
+            } else {
+                new LocalCNNTask(resultText, caffeMobile, IMAGENET_CLASSES).execute(image);
+            }
         }
+        super.onActivityResult(requestCode, resultCode, data);
     }
 
     private static void resizeAndSaveImage(File file){
@@ -141,22 +187,22 @@ public class MainActivity extends ActionBarActivity {
     @Override
     public boolean onCreateOptionsMenu(Menu menu) {
         // Inflate the menu; this adds items to the action bar if it is present.
-        getMenuInflater().inflate(R.menu.menu_main, menu);
+        getMenuInflater().inflate(R.menu.settings, menu);
         return true;
     }
-
     @Override
-    public boolean onOptionsItemSelected(MenuItem item) {
-        // Handle action bar item clicks here. The action bar will
-        // automatically handle clicks on the Home/Up button, so long
-        // as you specify a parent activity in AndroidManifest.xml.
-        int id = item.getItemId();
-
-        //noinspection SimplifiableIfStatement
-        if (id == R.id.action_settings) {
-            return true;
+    public boolean onOptionsItemSelected(MenuItem item)
+    {
+        switch(item.getItemId())
+        {
+            case R.id.preferences:
+            {
+                Intent intent = new Intent();
+                intent.setClassName(this, "com.mobilecnn.CNNPreferences");
+                startActivity(intent);
+                return true;
+            }
         }
-
         return super.onOptionsItemSelected(item);
     }
 
@@ -186,7 +232,7 @@ public class MainActivity extends ActionBarActivity {
         }
 
         // Create a media file name
-        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss", Locale.US).format(new Date());
         File mediaFile;
         if (type == MEDIA_TYPE_IMAGE) {
             mediaFile = new File(mediaStorageDir.getPath() + File.separator +

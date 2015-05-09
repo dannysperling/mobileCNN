@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<PreferenceScreen
+    xmlns:android="http://schemas.android.com/apk/res/android">
+
+    <PreferenceCategory
+        android:title="Local vs. Remote CNN">
+
+        <CheckBoxPreference
+            android:key="useLocalCNN"
+            android:title="Use Local CNN"
+            android:summary="Local version in use if box is selected"/>
+    </PreferenceCategory>
+</PreferenceScreen>
