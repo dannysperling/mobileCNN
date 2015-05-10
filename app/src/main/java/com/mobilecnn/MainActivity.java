@@ -7,6 +7,7 @@ import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Environment;
 import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
@@ -58,6 +59,8 @@ public class MainActivity extends ActionBarActivity {
     private static final String CLASS_WORDS = "synset_words.txt";
 
     public static boolean useLocal;
+
+    private AsyncTask<?, ?, ?> task;
 
     static {
         System.loadLibrary("caffe");
@@ -137,10 +140,16 @@ public class MainActivity extends ActionBarActivity {
 
             resizeAndSaveImage(image);
 
-            if (!useLocal) {
-                new RemoteCNNRequest(resultText).execute(image);
+            // Cancel previous task
+            if (task != null) {
+                task.cancel(true);
+            }
+
+            // Either send to the server or perform local check
+            if (useLocal) {
+                task = new LocalCNNTask(resultText, caffeMobile, IMAGENET_CLASSES).execute(image);
             } else {
-                new LocalCNNTask(resultText, caffeMobile, IMAGENET_CLASSES).execute(image);
+                task = new RemoteCNNRequest(resultText).execute(image);
             }
         }
         super.onActivityResult(requestCode, resultCode, data);

@@ -21,7 +21,7 @@ import java.io.InputStream;
  * Created by daniel on 5/9/15.
  */
 public class RemoteCNNRequest extends AsyncTask<File, Integer, String> {
-    private static final String POST_URL = "http://54.81.96.73:5000";
+    private static final String POST_URL = "http://54.161.58.220:5000";
 
     private String result = "Waiting...";
 
