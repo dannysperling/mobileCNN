@@ -1,5 +1,6 @@
 package com.mobilecnn;
 
+import android.content.SharedPreferences;
 import android.content.res.AssetManager;
 import android.database.Cursor;
 import android.graphics.Bitmap;
@@ -7,6 +8,7 @@ import android.graphics.BitmapFactory;
 import android.graphics.Matrix;
 import android.net.Uri;
 import android.os.Environment;
+import android.preference.PreferenceManager;
 import android.support.v7.app.ActionBarActivity;
 import android.os.Bundle;
 import android.util.Log;
@@ -51,9 +53,11 @@ public class MainActivity extends ActionBarActivity {
     private Uri fileUri;
 
     private CaffeMobile caffeMobile;
-    private static final String DEPLOY_PROTO ="/sdcard/caffe_mobile/bvlc_reference_caffenet/deploy_mobile.prototxt";
-    private static final String CAFFE_MODEL = "/sdcard/caffe_mobile/bvlc_reference_caffenet/bvlc_reference_caffenet.caffemodel";
+    private static final String DEPLOY_PROTO ="/sdcard/caffe_mobile/mobilecnn/mobilecnn_deploy.prototxt";
+    private static final String CAFFE_MODEL = "/sdcard/caffe_mobile/mobilecnn/mobilecnn.caffemodel";
     private static final String CLASS_WORDS = "synset_words.txt";
+
+    public static boolean useLocal;
 
     static {
         System.loadLibrary("caffe");
@@ -82,6 +86,11 @@ public class MainActivity extends ActionBarActivity {
                 startActivityForResult(i, REQUEST_IMAGE_SELECT);
             }
         });
+
+        PreferenceManager.setDefaultValues(this, R.xml.fragment_preference, false);
+        SharedPreferences appPreferences = PreferenceManager.getDefaultSharedPreferences(this);
+        useLocal = appPreferences.getBoolean("useLocalCNN", false);
+
 
         resultText = (TextView) findViewById(R.id.tvLabel);
         imageTaken = (ImageView) findViewById(R.id.ivCaptured);
@@ -128,7 +137,7 @@ public class MainActivity extends ActionBarActivity {
 
             resizeAndSaveImage(image);
 
-            if (!CNNPreferences.useLocalCNN.isChecked()) {
+            if (!useLocal) {
                 new RemoteCNNRequest(resultText).execute(image);
             } else {
                 new LocalCNNTask(resultText, caffeMobile, IMAGENET_CLASSES).execute(image);
