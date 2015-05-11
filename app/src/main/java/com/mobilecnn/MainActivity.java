@@ -138,7 +138,7 @@ public class MainActivity extends ActionBarActivity {
                 cursor.close();
             }
 
-            resizeAndSaveImage(image);
+            File temp = resizeAndSaveImage(image);
 
             // Cancel previous task
             if (task != null) {
@@ -149,13 +149,13 @@ public class MainActivity extends ActionBarActivity {
             if (useLocal) {
                 task = new LocalCNNTask(resultText, caffeMobile, IMAGENET_CLASSES).execute(image);
             } else {
-                task = new RemoteCNNRequest(resultText).execute(image);
+                task = new RemoteCNNRequest(resultText).execute(temp);
             }
         }
         super.onActivityResult(requestCode, resultCode, data);
     }
 
-    private static void resizeAndSaveImage(File file){
+    private static File resizeAndSaveImage(File file){
         BitmapFactory.Options options = new BitmapFactory.Options();
 
         if (lastImageBitmap != null) {
@@ -171,13 +171,14 @@ public class MainActivity extends ActionBarActivity {
         imageTaken.setImageBitmap(lastImageBitmap);
         Bitmap scaled = Bitmap.createScaledBitmap(lastImageBitmap, imageSize, imageSize, true);
 
-        saveImageToTempFile(scaled);
+        File temp = saveImageToTempFile(scaled);
         bmo.recycle();
         scaled.recycle();
+        return temp;
     }
 
     //Saves the image to the given filename
-    private static void saveImageToTempFile(Bitmap bmp){
+    private static File saveImageToTempFile(Bitmap bmp){
 
         File mediaStorageDir = new File(Environment.getExternalStoragePublicDirectory(
                 Environment.DIRECTORY_PICTURES), "MobileCNN");
@@ -198,6 +199,7 @@ public class MainActivity extends ActionBarActivity {
             } catch (IOException e) {
                 e.printStackTrace();
             }
+            return tempFile;
         }
     }
 
